@@ -1,0 +1,6 @@
+---
+- name: Restart BookStore
+  shell: docker compose restart
+  args:
+    chdir: "{{ app_dir }}"
+  become: no

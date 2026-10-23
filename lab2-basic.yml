@@ -1,0 +1,122 @@
+---
+# ============================
+# Lab 2: Playbook co ban
+# ============================
+- name: Lab 2 - Hoc cac module co ban
+  hosts: webservers
+  become: yes
+
+  vars:
+    student_name: "Khanh"
+    lab_dir: /home/ec2-user/ansible-lab
+
+  tasks:
+    # --- MODULE: file ---
+    # Tao thu muc
+    - name: "1. Tao thu muc lab"
+      file:
+        path: "{{ lab_dir }}"
+        state: directory
+        owner: ec2-user
+        mode: '0755'
+
+    # --- MODULE: copy ---
+    # Tao file voi noi dung
+    - name: "2. Tao file hello.txt"
+      copy:
+        content: |
+          Xin chao {{ student_name }}!
+          Day la file duoc tao boi Ansible.
+          Ngay tao: {{ ansible_date_time.date }}
+          Server: {{ ansible_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          RAM: {{ ansible_memtotal_mb }} MB
+        dest: "{{ lab_dir }}/hello.txt"
+        owner: ec2-user
+
+    # --- MODULE: lineinfile ---
+    # Them 1 dong vao file
+    - name: "3. Them dong vao hello.txt"
+      lineinfile:
+        path: "{{ lab_dir }}/hello.txt"
+        line: "Docker containers: dang chay {{ ansible_facts['docker_host_info']['Containers'] | default('N/A') }}"
+        insertafter: EOF
+
+    # --- MODULE: shell + register ---
+    # Chay lenh va luu ket qua
+    - name: "4. Dem so Docker containers"
+      shell: docker ps -q | wc -l
+      register: container_count
+      changed_when: false
+
+    - name: "5. Hien thi so container"
+      debug:
+        msg: "Dang co {{ container_count.stdout }} containers chay"
+
+    # --- MODULE: stat ---
+    # Kiem tra file co ton tai khong
+    - name: "6. Kiem tra file hello.txt"
+      stat:
+        path: "{{ lab_dir }}/hello.txt"
+      register: file_check
+
+    - name: "7. Thong tin file"
+      debug:
+        msg: >
+          File ton tai: {{ file_check.stat.exists }}
+          | Size: {{ file_check.stat.size }} bytes
+          | Owner: {{ file_check.stat.pw_name }}
+
+    # --- MODULE: command + creates ---
+    # Chi chay neu file chua ton tai
+    - name: "8. Tao file chi 1 lan (idempotent)"
+      command: echo "File nay chi tao 1 lan" > {{ lab_dir }}/once.txt
+      args:
+        creates: "{{ lab_dir }}/once.txt"
+
+    # --- MODULE: user ---
+    # Tao user moi
+    - name: "9. Tao user ansible-lab"
+      user:
+        name: ansible-lab
+        state: present
+        comment: "User tao boi Ansible Lab 2"
+        shell: /bin/bash
+
+    # --- MODULE: package ---
+    # Cai dat package
+    - name: "10. Cai dat htop"
+      dnf:
+        name: htop
+        state: present
+
+    # --- MODULE: service ---
+    # Kiem tra trang thai service
+    - name: "11. Kiem tra Docker service"
+      service_facts:
+
+    - name: "12. Docker service status"
+      debug:
+        msg: "Docker: {{ ansible_facts.services['docker.service'].state }}"
+
+    # --- Tong ket ---
+    - name: "13. Doc file hello.txt"
+      command: cat {{ lab_dir }}/hello.txt
+      register: file_content
+      changed_when: false
+
+    - name: "14. Noi dung file"
+      debug:
+        msg: "{{ file_content.stdout_lines }}"
+
+    - name: "15. TONG KET LAB 2"
+      debug:
+        msg: |
+          ========================================
+          Lab 2 hoan tat!
+          - Tao thu muc: {{ lab_dir }}
+          - Tao file: hello.txt
+          - Dem containers: {{ container_count.stdout }}
+          - Cai htop: OK
+          - Tao user: ansible-lab
+          ========================================

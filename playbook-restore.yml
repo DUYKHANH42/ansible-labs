@@ -1,0 +1,43 @@
+---
+- name: Restore BookStore tu Backup
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Restore database tu S3 (backup moi nhat)
+      shell: /home/ec2-user/backups/restore-db.sh
+      become: no
+      register: restore_result
+
+    - name: Ket qua restore
+      debug:
+        msg: "{{ restore_result.stdout_lines }}"
+
+    - name: Restore uploads tu S3
+      shell: |
+        aws s3 sync s3://{{ s3_backup_bucket }}/uploads/ /home/ec2-user/backups/uploads/
+        if [ -d /home/ec2-user/backups/uploads ]; then
+          docker cp /home/ec2-user/backups/uploads/. {{ app_container_name }}:/app/uploads/
+          echo "✅ Uploads restored"
+        fi
+      become: no
+      register: uploads_restore
+
+    - name: Ket qua restore uploads
+      debug:
+        msg: "{{ uploads_restore.stdout_lines }}"
+
+    - name: Restart containers
+      shell: cd {{ app_dir }} && docker compose restart
+      become: no
+
+    - name: Thong bao hoan tat
+      debug:
+        msg: |
+          ========================================
+          ✅ RESTORE HOAN TAT!
+          - Database: Restored ✅
+          - Uploads: Restored ✅
+          - Containers: Restarted ✅
+          Web: http://13.228.219.111
+          ========================================

@@ -1,0 +1,43 @@
+#!/bin/bash
+# ============================
+# BookStore Database Backup
+# ============================
+
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/home/ec2-user/backups/db"
+BACKUP_FILE="BookStoreDb_${TIMESTAMP}.bak"
+S3_BUCKET="bookstore-backup-khanh"
+
+# Tao thu muc backup
+mkdir -p ${BACKUP_DIR}
+
+echo "=== [1/4] Backup SQL Server ==="
+docker exec bookstore-database-1 /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P 'BookStore@Str0ng!' -C \
+  -Q "BACKUP DATABASE [BookStoreDb] TO DISK = N'/var/opt/mssql/backup/${BACKUP_FILE}' WITH FORMAT, INIT, NAME = 'BookStoreDb Full Backup ${TIMESTAMP}'"
+
+echo "=== [2/4] Copy backup ra khoi container ==="
+docker cp bookstore-database-1:/var/opt/mssql/backup/${BACKUP_FILE} ${BACKUP_DIR}/${BACKUP_FILE}
+
+echo "=== [3/4] Upload len S3 ==="
+aws s3 cp ${BACKUP_DIR}/${BACKUP_FILE} s3://${S3_BUCKET}/db/${BACKUP_FILE}
+
+echo "=== [4/4] Don dep backup cu (giu 7 ngay) ==="
+find ${BACKUP_DIR} -name "*.bak" -mtime +7 -delete
+
+# Xoa backup cu tren S3 (giu 30 ngay)
+aws s3 ls s3://${S3_BUCKET}/db/ | while read -r line; do
+  FILE_DATE=$(echo $line | awk '{print $1}')
+  FILE_NAME=$(echo $line | awk '{print $4}')
+  if [ ! -z "$FILE_NAME" ]; then
+    DAYS_OLD=$(( ($(date +%s) - $(date -d "$FILE_DATE" +%s)) / 86400 ))
+    if [ $DAYS_OLD -gt 30 ]; then
+      aws s3 rm s3://${S3_BUCKET}/db/${FILE_NAME}
+      echo "Da xoa backup cu: ${FILE_NAME} (${DAYS_OLD} ngay)"
+    fi
+  fi
+done
+
+echo "✅ Backup hoan tat: ${BACKUP_FILE}"
+echo "   Local: ${BACKUP_DIR}/${BACKUP_FILE}"
+echo "   S3: s3://${S3_BUCKET}/db/${BACKUP_FILE}"

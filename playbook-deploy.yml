@@ -1,0 +1,18 @@
+---
+- name: Deploy BookStore len EC2
+  hosts: webservers
+  become: yes
+
+  roles:
+    - bookstore
+
+  post_tasks:
+    - name: Thong bao hoan tat
+      debug:
+        msg: |
+          ========================================
+          ✅ BookStore deployed thanh cong!
+          Frontend: http://13.228.219.111:{{ frontend_port }}
+          Backend:  http://13.228.219.111:{{ backend_port }}
+          Database: 13.228.219.111:{{ db_port }}
+          ========================================

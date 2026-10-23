@@ -1,0 +1,18 @@
+---
+docker_compose_version: "2.20.0"
+
+app_name: bookstore
+app_dir: /home/ec2-user/BookStore
+repo_url: https://github.com/DUYKHANH42/BookStore_ASP_NC.git
+repo_branch: develop
+
+backend_port: 5000
+frontend_port: 80
+db_port: 1433
+
+db_password: "BookStore@Str0ng!"
+
+# Backup config
+s3_backup_bucket: "bookstore-backup-khanh"
+db_container_name: "bookstore-database-1"
+app_container_name: "bookstore-bookstore-app-1"

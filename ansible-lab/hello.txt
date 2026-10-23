@@ -1,0 +1,7 @@
+Xin chao Khanh!
+Day la file duoc tao boi Ansible.
+Ngay tao: 2026-10-19
+Server: ip-172-31-24-239
+OS: Amazon 2023
+RAM: 3815 MB
+Docker containers: dang chay N/A

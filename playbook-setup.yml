@@ -1,0 +1,12 @@
+---
+- name: Setup EC2 cho BookStore
+  hosts: webservers
+  become: yes
+
+  roles:
+    - docker
+
+  post_tasks:
+    - name: Thong bao hoan tat
+      debug:
+        msg: "✅ EC2 da san sang! Docker da duoc cai dat."

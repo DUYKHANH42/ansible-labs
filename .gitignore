@@ -1,0 +1,6 @@
+*.bak
+*.retry
+*.log
+.vault_pass
+backups/db/
+backups/uploads/

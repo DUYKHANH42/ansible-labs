@@ -1,0 +1,32 @@
+---
+- name: Backup BookStore Data
+  hosts: webservers
+  become: yes
+
+  roles:
+    - backup
+
+  post_tasks:
+    - name: Tao EBS Snapshot
+      shell: |
+        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+        VOLUME_ID=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations.Instances.BlockDeviceMappings.Ebs.VolumeId' --output text --region ap-southeast-1)
+        SNAPSHOT_ID=$(aws ec2 create-snapshot --volume-id $VOLUME_ID --description "BookStore Backup $(date +%Y%m%d_%H%M%S)" --region ap-southeast-1 --query 'SnapshotId' --output text)
+        echo "✅ EBS Snapshot created: ${SNAPSHOT_ID}"
+      become: no
+      register: snapshot_result
+
+    - name: Ket qua snapshot
+      debug:
+        msg: "{{ snapshot_result.stdout_lines }}"
+
+    - name: Thong bao hoan tat
+      debug:
+        msg: |
+          ========================================
+          ✅ BACKUP HOAN TAT!
+          - Database: S3 ✅
+          - Uploads: S3 ✅
+          - EBS Snapshot: AWS ✅
+          - Cron: 2h sang hang ngay ✅
+          ========================================

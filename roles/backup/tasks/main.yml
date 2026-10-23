@@ -1,0 +1,71 @@
+---
+- name: Tao thu muc backup
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: ec2-user
+    mode: '0755'
+  loop:
+    - /home/ec2-user/backups
+    - /home/ec2-user/backups/db
+    - /home/ec2-user/backups/uploads
+
+- name: Tao thu muc backup trong container SQL Server
+  shell: docker exec {{ db_container_name }} mkdir -p /var/opt/mssql/backup
+  become: no
+  changed_when: false
+
+- name: Copy script backup database
+  template:
+    src: backup-db.sh.j2
+    dest: /home/ec2-user/backups/backup-db.sh
+    owner: ec2-user
+    mode: '0755'
+
+- name: Copy script restore database
+  template:
+    src: restore-db.sh.j2
+    dest: /home/ec2-user/backups/restore-db.sh
+    owner: ec2-user
+    mode: '0755'
+
+- name: Chay backup database
+  shell: /home/ec2-user/backups/backup-db.sh
+  become: no
+  register: backup_result
+
+- name: Ket qua backup
+  debug:
+    msg: "{{ backup_result.stdout_lines }}"
+
+- name: Backup uploads len S3
+  shell: |
+    if docker exec {{ app_container_name }} ls /app/uploads 2>/dev/null; then
+      docker cp {{ app_container_name }}:/app/uploads /home/ec2-user/backups/uploads/
+      aws s3 sync /home/ec2-user/backups/uploads/ s3://{{ s3_backup_bucket }}/uploads/
+      echo "✅ Uploads backup hoan tat"
+    else
+      echo "⚠️ Khong co thu muc uploads"
+    fi
+  become: no
+  register: uploads_result
+
+- name: Ket qua backup uploads
+  debug:
+    msg: "{{ uploads_result.stdout_lines }}"
+
+- name: Setup cron backup tu dong (moi ngay 2h sang)
+  cron:
+    name: "BookStore DB Backup"
+    minute: "0"
+    hour: "2"
+    job: "/home/ec2-user/backups/backup-db.sh >> /home/ec2-user/backups/backup.log 2>&1"
+    user: ec2-user
+
+- name: Setup cron backup uploads (moi ngay 3h sang)
+  cron:
+    name: "BookStore Uploads Backup"
+    minute: "0"
+    hour: "3"
+    job: "aws s3 sync /home/ec2-user/backups/uploads/ s3://{{ s3_backup_bucket }}/uploads/ >> /home/ec2-user/backups/backup.log 2>&1"
+    user: ec2-user

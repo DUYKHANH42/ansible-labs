@@ -1,0 +1,51 @@
+---
+- name: Clone hoac Pull BookStore repository
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_dir }}"
+    version: "{{ repo_branch }}"
+    force: yes
+  become: no
+
+- name: Copy docker-compose template
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ app_dir }}/docker-compose.yml"
+    owner: ec2-user
+    group: ec2-user
+    mode: '0644'
+
+- name: Dung containers cu (neu co)
+  shell: docker compose down
+  args:
+    chdir: "{{ app_dir }}"
+  become: no
+  ignore_errors: yes
+
+- name: Build va khoi dong BookStore
+  shell: docker compose up -d --build
+  args:
+    chdir: "{{ app_dir }}"
+  become: no
+  register: compose_result
+
+- name: Hien thi ket qua deploy
+  debug:
+    msg: "{{ compose_result.stdout_lines }}"
+
+- name: Cho backend khoi dong
+  wait_for:
+    port: "{{ backend_port }}"
+    delay: 10
+    timeout: 120
+  ignore_errors: yes
+
+- name: Kiem tra containers dang chay
+  shell: docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{' }}.Ports{{ '}}' }}"
+  become: no
+  register: docker_ps
+  changed_when: false
+
+- name: Danh sach containers
+  debug:
+    msg: "{{ docker_ps.stdout_lines }}"

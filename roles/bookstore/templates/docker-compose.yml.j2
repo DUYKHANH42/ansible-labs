@@ -1,0 +1,39 @@
+services:
+  database:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "{{ db_password }}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "{{ db_port }}:1433"
+    volumes:
+      - bookstore_asp_nc_db_data:/var/opt/mssql
+    restart: unless-stopped
+
+  bookstore-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "{{ backend_port }}:10000"
+    depends_on:
+      - database
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=database;Database=BookStoreDb;User=sa;Password={{ db_password }};TrustServerCertificate=true
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./BookStore_GiaoDien
+      dockerfile: Dockerfile
+    ports:
+      - "{{ frontend_port }}:80"
+    depends_on:
+      - bookstore-app
+    restart: unless-stopped
+
+volumes:
+  bookstore_asp_nc_db_data:
+    external: true
